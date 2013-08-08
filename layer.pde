@@ -11,6 +11,15 @@ class node {
     activation = theactivation;
     history = new double[historyLength];
   }
+
+  void addWeights(layer donor) {
+    weights = new double[donor.size];
+    for (int j=0; j<donor.size; j++) {
+       //if (i==j) weights[j] = random(0.4)+0.6;
+       //else 
+       weights[j] = random(0.4)-0.2;
+    }
+  }
   
   void setCoordinates(int thex,int they,int thediameter) {
     x=thex; y=they; diameter=thediameter;
@@ -18,8 +27,13 @@ class node {
   
   void activation(double value) {
     activation = value;
-    history[round%historyLength] = value;
+    recordActivation();
   }
+
+  void recordActivation() {
+    history[round%historyLength] = activation;
+  }
+
   
   void showHistory(int xorigin, int yorigin, int xscale, int yscale) {
     for (int h=1; h<historyLength; h++)
@@ -45,11 +59,7 @@ class layer {
    
    if (donor!=null) {
      for (int i=0; i<size; i++) {
-      nodes[i].weights = new double[donor.size];
-      for (int j=0; j<donor.size; j++) {
-        if (i==j) nodes[i].weights[j] = random(0.4)+0.6;
-        else nodes[i].weights[j] = random(0.4)-0.2;
-      }
+      nodes[i].addWeights(donor);
      }
    }
  }
@@ -66,6 +76,12 @@ class layer {
    donor = null;
    if (l1.coordinatesSet && l2.coordinatesSet) coordinatesSet=true;
  } 
+
+  void addDonor(layer additional) {
+    donor = new layer(donor,additional);
+    for (int i=0; i<size; i++) 
+      nodes[i].addWeights(donor); 
+  }   
  
  void setCoordinates(int x0, int y0, int dx, int dy) {
    coordinatesSet=true;
@@ -122,6 +138,14 @@ class layer {
          activation+=nodes[i].weights[j]*donor.nodes[j].activation;
        }
        nodes[i].activation(sigmoid(activation));
+     }
+   }
+ }
+
+ void recordActivations() {
+   if (donor!=null) {
+     for (int i=0; i<size; i++) {
+       nodes[i].recordActivation();
      }
    }
  }

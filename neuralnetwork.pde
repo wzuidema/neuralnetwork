@@ -1,5 +1,5 @@
 PFont font12;
-layer input;
+layer input, test;
 autoencoder[] raams;
 
 int prevtime=0, round=0;
@@ -7,6 +7,8 @@ int prevtime=0, round=0;
 double theinput[] = {1.0,0.0,0.0,0.0,0.0,0.0};
 //double theoutput[] = {1.0,0.0,0.5};
 double[] scaled;
+
+int[] timescales = { 1, 4, 16, 64, 64 };
 
 void setup() 
 {
@@ -24,10 +26,13 @@ void setup()
   raams[0] = new autoencoder(5,input,1);
   raams[0].setCoordinates(600,200,50,-50);
   
-  for (int r=1; r<5; r++) {
-    raams[r] = new autoencoder(5-r,raams[r-1].hidden,(int)pow(2,r));
+  for (int r=1; r<raams.length; r++) {
+    raams[r] = new autoencoder(5-r,raams[r-1].hidden,timescales[r]);
     raams[r].setCoordinates(600,200+r*100,50,-50);
   }
+  
+//  raams[0].input.setCoordinates(600,100,50,0);
+  raams[0].hidden.addDonor(raams[4].hidden);
 }
 
 void draw()
@@ -38,7 +43,7 @@ void draw()
   text(""+round,900,650);
    
   input.display();
-  for (int r=0; r<5; r++)
+  for (int r=0; r<raams.length; r++)
     raams[r].display();
 
 //    stroke(256,256,256);
@@ -72,17 +77,17 @@ void trainNetwork() {
   float wave = shortwave;
   
   if (longwave>0.0) {
-  if (wave<-0.5) theinput[0]=1.0; else theinput[0]=0.0;
-  if (wave>-0.5 && wave<0.5) theinput[1]=1.0; else theinput[1]=0.0;
-  if (wave>0.5) theinput[2]=1.0; else theinput[2]=0.0;
+  if (wave<-0.5) theinput[0]=1.0; else theinput[0]=0.5;
+  if (wave>-0.5 && wave<0.5) theinput[1]=1.0; else theinput[1]=0.5;
+  if (wave>0.5) theinput[2]=1.0; else theinput[2]=0.5;
   theinput[3]=0.0;
   theinput[4]=0.0;
   theinput[5]=0.0; }
   
   if (longwave<0.0) {
-  if (wave<-0.5) theinput[3]=1.0; else theinput[3]=0.0;
-  if (wave>-0.5 && wave<0.5) theinput[4]=1.0; else theinput[4]=0.0;
-  if (wave>0.5) theinput[5]=1.0; else theinput[5]=0.0;
+  if (wave<-0.5) theinput[3]=1.0; else theinput[3]=0.5;
+  if (wave>-0.5 && wave<0.5) theinput[4]=1.0; else theinput[4]=0.5;
+  if (wave>0.5) theinput[5]=1.0; else theinput[5]=0.5;
   theinput[0]=0.0;
   theinput[1]=0.0;
   theinput[2]=0.0; }
@@ -91,8 +96,10 @@ void trainNetwork() {
 //  scaled = scalartimesvector(1.0,theinput); // random(1.0)
   input.setActivations(theinput);
   
-  for (int r=0; r<5; r++)
+  for (int r=0; r<raams.length; r++) {
     if (round%(pow(2,r))==0) raams[r].train();
+    else raams[r].recordActivations();
+  }
 }
 
 void randomizeArray(double[] old) {

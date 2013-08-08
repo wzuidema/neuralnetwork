@@ -40,5 +40,9 @@ class autoencoder {
   output.updateWeights();
   hidden.updateWeights();
 }
-
+ 
+ void recordActivations() {
+   hidden.recordActivations();
+   output.recordActivations();
+ }
 }
