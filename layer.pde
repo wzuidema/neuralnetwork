@@ -1,55 +1,80 @@
 double eta = 0.1;
 
+class node {
+  double weights[], activation, error;
+  int x, y, diameter;
+  
+  node(double theactivation) {
+    activation = theactivation; 
+  }
+  
+  void setCoordinates(int thex,int they,int thediameter) {
+    x=thex; y=they; diameter=thediameter;
+  }
+}
+
 class layer {
   int size;
   layer donor;
+  node nodes[];
   
-  double weights[][], activations[], errors[];
-  int x[], y[], diameter;
   boolean coordinatesSet=false;
-  
+ 
  layer(int thesize, layer thedonor) {
    size = thesize;  
    donor = thedonor;
 
-   errors = new double[size];
-   activations = new double[size];
+   nodes = new node[size];
    for (int i=0; i<size; i++) 
-     activations[i] = random(1.0);
+     nodes[i] = new node(random(1.0));
    
    if (donor!=null) {
-     weights = new double[size][];
      for (int i=0; i<size; i++) {
-      weights[i] = new double[donor.size];
+      nodes[i].weights = new double[donor.size];
       for (int j=0; j<donor.size; j++) {
-        weights[i][j] = random(1.0);
+        nodes[i].weights[j] = random(1.0);
       }
      }
    }
  }
+
+ layer(layer l1, layer l2) {
+   size = l1.size + l2.size;  
+
+   nodes = new node[size];
+   for (int i=0; i<l1.size; i++) 
+     nodes[i] = l1.nodes[i];
+   for (int i=0; i<l2.size; i++) 
+     nodes[l1.size+i] = l2.nodes[i];
+   
+   donor = null;
+   if (l1.coordinatesSet && l2.coordinatesSet) coordinatesSet=true;
+ } 
  
  void setCoordinates(int x0, int y0, int dx, int dy) {
    coordinatesSet=true;
-    x = new int[size];
-    y = new int[size];  
     for (int i=0; i<size; i++) {
-      x[i] = x0 + i*dx;
-      y[i] = y0 + i*dy;
+      nodes[i].x = x0 + i*dx;
+      nodes[i].y = y0 + i*dy;
+      nodes[i].diameter = int(0.8 * max(dx,dy));
     }
-    diameter = int(0.8 * max(dx,dy));
  }
  
  void display() {
    if (coordinatesSet) {
      for (int i=0; i<size; i++) {
        strokeWeight(0);
-       fill((int)(256*activations[i]),(int)(256*(1.0-activations[i])),0);
-       rect(x[i],y[i],diameter,diameter);
+       fill((int)(256*nodes[i].activation),(int)(256*(1.0-nodes[i].activation)),0);
+       rect(nodes[i].x,nodes[i].y,nodes[i].diameter,nodes[i].diameter);
        if (donor!=null) {
          for (int j=0; j<donor.size; j++) {
-           if (weights[i][j]<0.0) stroke(256,256,256); else stroke(0,0,0);
-           strokeWeight(min(8,abs((int)(weights[i][j]*4))));
-           line(x[i],y[i],donor.x[j],donor.y[j]);
+           if (nodes[i].weights[j]<0.0) { 
+             stroke(256,256,256);
+             strokeWeight(max(1.0,(int)(log(-(float)nodes[i].weights[j]*4)))); } 
+           else { 
+             stroke(0,0,0);
+             strokeWeight(max(1.0,(int)(log((float)nodes[i].weights[j]*4)))); }
+           line(nodes[i].x,nodes[i].y,donor.nodes[j].x,donor.nodes[j].y);
          }
        }
      }
@@ -57,19 +82,26 @@ class layer {
  }
  
  void setActivations(double theactivations[]) {
-   if (size != theactivations.length) println("Mismatch!");
+   if (size != theactivations.length) println("Mismatch! (setActivations)");
    for (int i=0; i<size; i++)
-     activations[i] = theactivations[i];
+     nodes[i].activation = theactivations[i];
+ }
+ 
+ void copyActivations(layer source) {
+   if (size != source.size) println("Mismatch! (copyActivations)");
+   for (int i=0; i<size; i++)
+     nodes[i].activation = source.nodes[i].activation;
+   
  }
  
  void computeActivations() {
    if (donor!=null) {
      for (int i=0; i<size; i++) {
-       activations[i] = 0.0;
+       nodes[i].activation = 0.0;
        for (int j=0; j<donor.size; j++) {
-         activations[i]+=weights[i][j]*donor.activations[j];
+         nodes[i].activation+=nodes[i].weights[j]*donor.nodes[j].activation;
        }
-       activations[i] = sigmoid(activations[i]);
+       nodes[i].activation = sigmoid(nodes[i].activation);
      }
    }
  }
@@ -77,16 +109,16 @@ class layer {
   void computeErrors(double target[]) {
    if (size!=target.length) {println("Mismatch! (computeErrors())");}
    for (int i=0; i<size; i++) {
-     errors[i] = activations[i] - target[i];
+     nodes[i].error = nodes[i].activation - target[i];
      }
   }
   
   void backpropagate() {
    if (donor!=null) {
        for (int j=0; j<donor.size; j++) {
-         donor.errors[j]=0.0;
+         donor.nodes[j].error=0.0;
          for (int i=0; i<size; i++) {
-            donor.errors[j] += weights[i][j]*errors[i]*donor.activations[j];
+            donor.nodes[j].error += nodes[i].weights[j]*nodes[i].error*donor.nodes[j].activation;
          }
        }
        donor.backpropagate();
@@ -97,7 +129,7 @@ class layer {
    if (donor!=null) {
        for (int j=0; j<donor.size; j++) {
          for (int i=0; i<size; i++) {
-            weights[i][j]-=donor.activations[j]*errors[i]*eta;
+            nodes[i].weights[j]-=donor.nodes[j].activation*nodes[i].error*eta;
          }
        }
    }
@@ -105,5 +137,5 @@ class layer {
 }
 
 double sigmoid(double x) {
-  return 1.0 / (1.0 + exp((float)-x));
+  return 1.0 / (1.0 + exp(-(float)x));
 }
