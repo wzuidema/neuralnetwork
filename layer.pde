@@ -1,15 +1,29 @@
-double eta = 0.1;
+double eta = 0.01;
+int historyLength=500;
 
 class node {
   double weights[], activation, error;
   int x, y, diameter;
   
+  double history[];
+  
   node(double theactivation) {
-    activation = theactivation; 
+    activation = theactivation;
+    history = new double[historyLength];
   }
   
   void setCoordinates(int thex,int they,int thediameter) {
     x=thex; y=they; diameter=thediameter;
+  }
+  
+  void activation(double value) {
+    activation = value;
+    history[round%historyLength] = value;
+  }
+  
+  void showHistory(int xorigin, int yorigin, int xscale, int yscale) {
+    for (int h=1; h<historyLength; h++)
+      line(xorigin+xscale*(h-1),(int)(yorigin+yscale*history[h-1]),xorigin+xscale*h,(int)(yorigin+yscale*history[h]));
   }
 }
 
@@ -17,6 +31,7 @@ class layer {
   int size;
   layer donor;
   node nodes[];
+  double summedSqError=0.0;
   
   boolean coordinatesSet=false;
  
@@ -32,7 +47,8 @@ class layer {
      for (int i=0; i<size; i++) {
       nodes[i].weights = new double[donor.size];
       for (int j=0; j<donor.size; j++) {
-        nodes[i].weights[j] = random(1.0);
+        if (i==j) nodes[i].weights[j] = random(0.4)+0.6;
+        else nodes[i].weights[j] = random(0.4)-0.2;
       }
      }
    }
@@ -66,7 +82,7 @@ class layer {
        strokeWeight(0);
        fill((int)(256*nodes[i].activation),(int)(256*(1.0-nodes[i].activation)),0);
        rect(nodes[i].x,nodes[i].y,nodes[i].diameter,nodes[i].diameter);
-       if (donor!=null) {
+       if (donor!=null && donor.coordinatesSet) {
          for (int j=0; j<donor.size; j++) {
            if (nodes[i].weights[j]<0.0) { 
              stroke(256,256,256);
@@ -77,6 +93,10 @@ class layer {
            line(nodes[i].x,nodes[i].y,donor.nodes[j].x,donor.nodes[j].y);
          }
        }
+       
+       strokeWeight(2);
+       stroke(256,256-(i*(256/size)),i*(256/size));
+       nodes[i].showHistory(nodes[0].x-550,nodes[0].y-nodes[0].diameter/2,1,nodes[0].diameter);
      }
    }
  }
@@ -84,33 +104,64 @@ class layer {
  void setActivations(double theactivations[]) {
    if (size != theactivations.length) println("Mismatch! (setActivations)");
    for (int i=0; i<size; i++)
-     nodes[i].activation = theactivations[i];
+     nodes[i].activation(theactivations[i]);
  }
  
  void copyActivations(layer source) {
    if (size != source.size) println("Mismatch! (copyActivations)");
    for (int i=0; i<size; i++)
-     nodes[i].activation = source.nodes[i].activation;
+     nodes[i].activation(source.nodes[i].activation);
    
  }
  
  void computeActivations() {
    if (donor!=null) {
      for (int i=0; i<size; i++) {
-       nodes[i].activation = 0.0;
+       double activation = 0.0;
        for (int j=0; j<donor.size; j++) {
-         nodes[i].activation+=nodes[i].weights[j]*donor.nodes[j].activation;
+         activation+=nodes[i].weights[j]*donor.nodes[j].activation;
        }
-       nodes[i].activation = sigmoid(nodes[i].activation);
+       nodes[i].activation(sigmoid(activation));
      }
    }
  }
 
+double[] average(int fromTime, int toTime) {
+  double[] average = new double[size];
+  for (int i=0; i<size; i++) {
+    average[i] = 0.0;
+    for (int t=fromTime; t<toTime; t++) 
+      average[i] += nodes[i].history[(500+round+t)%historyLength];
+    average[i]/=(toTime-fromTime);
+  }
+  return average;
+}
+
+  int sign(double value) {
+   if (value<0.0) return -1;
+   else return 1; 
+  }
+
   void computeErrors(double target[]) {
    if (size!=target.length) {println("Mismatch! (computeErrors())");}
+   summedSqError *= 100.0;
    for (int i=0; i<size; i++) {
-     nodes[i].error = nodes[i].activation - target[i];
-     }
+     float error = (float)nodes[i].activation - (float)target[i];
+     nodes[i].error = sign(error) * pow(error,2.0);
+     summedSqError += error*error;
+   } 
+   summedSqError /= 101.0;
+  }
+  
+  void computeErrors(layer target) {
+   if (size!=target.size) {println("Mismatch! (computeErrors())");}
+   summedSqError *= 100.0;
+   for (int i=0; i<size; i++) {
+     float error = (float)nodes[i].activation - (float)target.nodes[i].activation;
+     nodes[i].error = sign(error) * pow(error,2.0);
+     summedSqError += error*error;
+   } 
+   summedSqError /= 101.0;
   }
   
   void backpropagate() {
